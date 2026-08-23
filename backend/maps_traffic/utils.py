@@ -148,6 +148,30 @@ def generate_mock_steps(origin: Coordinates, destination: Coordinates, mode: Tra
     ]
 
 
+def validate_coordinates(lat: float, lng: float, location_name: str = "Coordinates") -> None:
+    """
+    Centralized validation for latitude and longitude bounds.
+    Raises ValueError if latitude is not [-90.0, 90.0] or longitude is not [-180.0, 180.0].
+    """
+    if not (-90.0 <= lat <= 90.0):
+        raise ValueError(f"{location_name}: Latitude must be between -90.0 and 90.0 degrees.")
+    if not (-180.0 <= lng <= 180.0):
+        raise ValueError(f"{location_name}: Longitude must be between -180.0 and 180.0 degrees.")
+
+
+def validate_appointment_time(time_str: Optional[str]) -> datetime:
+    """
+    Centralized validation for appointment time string in 'HH:MM' 24-hour format.
+    Returns parsed datetime object or raises ValueError.
+    """
+    if not time_str or not isinstance(time_str, str):
+        raise ValueError("appointment_time must be provided in 'HH:MM' format.")
+    try:
+        return datetime.strptime(time_str.strip(), "%H:%M")
+    except ValueError:
+        raise ValueError("estimated_appointment_time must be in 'HH:MM' format.")
+
+
 def calculate_leave_time(
     appointment_time: Optional[str] = None,
     travel_minutes: float = 0.0,
@@ -172,23 +196,18 @@ def calculate_leave_time(
         }
     """
     appt_str = appointment_time or estimated_appointment_time
-    if not appt_str:
-        raise ValueError("appointment_time must be provided in 'HH:MM' format.")
+    appt_dt = validate_appointment_time(appt_str)
 
     buf = safety_buffer if safety_buffer_minutes is None else safety_buffer_minutes
 
-    try:
-        appt_time = datetime.strptime(appt_str, "%H:%M")
-    except ValueError:
-        raise ValueError("estimated_appointment_time must be in 'HH:MM' format.")
-
     total_buffer = travel_minutes + buf
-    leave_dt = appt_time - timedelta(minutes=total_buffer)
+    leave_dt = appt_dt - timedelta(minutes=total_buffer)
     leave_time_str = leave_dt.strftime("%H:%M")
 
     return {
         "leave_time": leave_time_str,
         "total_journey_buffer_minutes": round(total_buffer, 1),
     }
+
 
 

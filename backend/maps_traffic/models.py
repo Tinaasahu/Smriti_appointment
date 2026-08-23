@@ -200,5 +200,67 @@ class LeaveTimeResponse(BaseModel):
     )
 
 
+class QueueETAResponse(BaseModel):
+    token_number: str = Field(..., description="Patient appointment token number, e.g. A-102")
+    appointment_time: str = Field(..., description="Estimated appointment time from Queue module in HH:MM format")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "token_number": "A-102",
+                "appointment_time": "18:30"
+            }
+        }
+    )
+
+
+class TravelSummaryRequest(BaseModel):
+    token_number: Optional[str] = Field("A-102", description="Patient queue token number, e.g. A-102")
+    appointment_time: Optional[str] = Field(None, description="Estimated appointment time in HH:MM format (optional if fetched via token_number)")
+    patient_lat: float = Field(..., ge=-90.0, le=90.0, description="Patient latitude (-90 to 90)")
+    patient_lng: float = Field(..., ge=-180.0, le=180.0, description="Patient longitude (-180 to 180)")
+    clinic_lat: float = Field(..., ge=-90.0, le=90.0, description="Clinic latitude (-90 to 90)")
+    clinic_lng: float = Field(..., ge=-180.0, le=180.0, description="Clinic longitude (-180 to 180)")
+    safety_buffer: float = Field(default=10.0, ge=0, description="Safety buffer in minutes")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "token_number": "A-102",
+                "appointment_time": "18:30",
+                "patient_lat": 25.4358,
+                "patient_lng": 81.8463,
+                "clinic_lat": 25.4480,
+                "clinic_lng": 81.8542,
+                "safety_buffer": 10.0
+            }
+        }
+    )
+
+
+class TravelSummaryResponse(BaseModel):
+    token_number: str = Field(..., description="Patient appointment token number, e.g. A-102")
+    appointment_time: str = Field(..., description="Scheduled appointment time in HH:MM format")
+    distance_km: float = Field(..., description="Distance in kilometers")
+    travel_minutes: float = Field(..., description="Travel time in minutes")
+    traffic_level: str = Field(..., description="Traffic congestion level (Low, Medium, High)")
+    leave_home_at: str = Field(..., description="Recommended leave home time in HH:MM format")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "token_number": "A-102",
+                "appointment_time": "18:30",
+                "distance_km": 4.8,
+                "travel_minutes": 18,
+                "traffic_level": "Medium",
+                "leave_home_at": "18:02"
+            }
+        }
+    )
+
+
+
+
 
 

@@ -19,6 +19,8 @@ from .models import (
     MapsETAResponse,
     LeaveTimeRequest,
     LeaveTimeResponse,
+    TravelSummaryRequest,
+    TravelSummaryResponse,
 )
 from .service import MapsTrafficService
 
@@ -211,6 +213,37 @@ async def calculate_leave_time_endpoint(request: LeaveTimeRequest) -> LeaveTimeR
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error calculating leave time: {str(e)}",
         )
+
+
+@maps_router.post(
+    "/travel-summary",
+    response_model=TravelSummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate Travel Summary",
+    description="Accepts appointment time from Queue module along with patient and clinic coordinates to return travel ETA and leave home time in one combined response.",
+)
+async def generate_travel_summary_endpoint(request: TravelSummaryRequest) -> TravelSummaryResponse:
+    try:
+        return service.generate_travel_summary(
+            token_number=request.token_number,
+            appointment_time=request.appointment_time,
+            patient_lat=request.patient_lat,
+            patient_lng=request.patient_lng,
+            clinic_lat=request.clinic_lat,
+            clinic_lng=request.clinic_lng,
+            safety_buffer=request.safety_buffer,
+        )
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generating travel summary: {str(e)}",
+        )
+
 
 
 

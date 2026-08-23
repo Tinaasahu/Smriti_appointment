@@ -11,6 +11,8 @@ from .service import (
     calculate_travel_eta,
     calculate_maps_eta,
     calculate_leave_time,
+    generate_travel_summary,
+    fetch_queue_eta,
 )
 from .models import (
     Coordinates,
@@ -25,6 +27,16 @@ from .models import (
     MapsETAResponse,
     LeaveTimeRequest,
     LeaveTimeResponse,
+    TravelSummaryRequest,
+    TravelSummaryResponse,
+    QueueETAResponse,
+)
+
+from .providers import (
+    BaseMapsProvider,
+    MockProvider,
+    GoogleMapsProvider,
+    get_maps_provider,
 )
 
 __all__ = [
@@ -34,6 +46,12 @@ __all__ = [
     "calculate_travel_eta",
     "calculate_maps_eta",
     "calculate_leave_time",
+    "generate_travel_summary",
+    "fetch_queue_eta",
+    "BaseMapsProvider",
+    "MockProvider",
+    "GoogleMapsProvider",
+    "get_maps_provider",
     "Coordinates",
     "RouteRequest",
     "RouteResponse",
@@ -46,6 +64,9 @@ __all__ = [
     "MapsETAResponse",
     "LeaveTimeRequest",
     "LeaveTimeResponse",
+    "TravelSummaryRequest",
+    "TravelSummaryResponse",
+    "QueueETAResponse",
 ]
 
 

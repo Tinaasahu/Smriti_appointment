@@ -32,6 +32,9 @@ from .models import (
     MapsETAResponse,
     LeaveTimeRequest,
     LeaveTimeResponse,
+    TravelSummaryRequest,
+    TravelSummaryResponse,
+    QueueETAResponse,
 )
 from .utils import (
     haversine_distance,
@@ -40,7 +43,15 @@ from .utils import (
     compute_recommended_departure,
     generate_mock_steps,
     calculate_leave_time,
+    validate_coordinates,
+    validate_appointment_time,
     TRAFFIC_MULTIPLIERS,
+)
+from .providers import (
+    BaseMapsProvider,
+    MockProvider,
+    GoogleMapsProvider,
+    get_maps_provider,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,44 +148,22 @@ def calculate_maps_eta(
     clinic_lat: float,
     clinic_lng: float,
     mode: Optional[str] = None,
+    provider: Optional[BaseMapsProvider] = None,
 ) -> dict:
     """
-    Calculate maps ETA supporting dual modes:
-      1. Mock mode (default for MVP)
-      2. Google Maps API mode using GOOGLE_MAPS_API_KEY from environment/.env
-
-    Returns identical response format for both modes:
-    {
-        "distance_km": float,
-        "travel_minutes": float,
-        "traffic": str ("Low", "Medium", "High"),
-        "traffic_level": str ("Low", "Medium", "High")
-    }
+    Calculate maps ETA using provider abstraction layer.
     """
-    _load_env_file()
-    selected_mode = (mode or os.getenv("MAPS_MODE") or "mock").lower()
-    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    validate_coordinates(patient_lat, patient_lng, "Patient coordinates")
+    validate_coordinates(clinic_lat, clinic_lng, "Clinic coordinates")
 
-    if selected_mode in ("google_maps", "google", "live", "routes_api") and api_key:
-        try:
-            return fetch_google_maps_eta(patient_lat, patient_lng, clinic_lat, clinic_lng, api_key)
-        except Exception as e:
-            logger.warning(f"Google Maps API call failed: {e}. Falling back to mock mode.")
-
-    # Default Mock Mode (MVP)
-    res = calculate_travel_eta(
-        patient_latitude=patient_lat,
-        patient_longitude=patient_lng,
-        clinic_latitude=clinic_lat,
-        clinic_longitude=clinic_lng,
-        mock_mode=True,
+    active_provider = provider or get_maps_provider(mode=mode)
+    res = active_provider.calculate_eta(patient_lat, patient_lng, clinic_lat, clinic_lng)
+    
+    logger.info(
+        f"calculate_maps_eta: provider={active_provider.__class__.__name__}, "
+        f"distance_km={res['distance_km']}, travel_minutes={res['travel_minutes']}, traffic={res['traffic_level']}"
     )
-    return {
-        "distance_km": res["distance_km"],
-        "travel_minutes": round(res["travel_time_minutes"]),
-        "traffic": res["traffic_level"],
-        "traffic_level": res["traffic_level"],
-    }
+    return res
 
 
 def calculate_travel_eta(
@@ -184,71 +173,101 @@ def calculate_travel_eta(
     clinic_longitude: float,
     mock_mode: bool = True,
     mode: Optional[str] = None,
+    provider: Optional[BaseMapsProvider] = None,
 ) -> dict:
     """
     Calculate travel ETA service function.
-
-    Inputs:
-        patient_latitude (float): Latitude of patient location
-        patient_longitude (float): Longitude of patient location
-        clinic_latitude (float): Latitude of clinic location
-        clinic_longitude (float): Longitude of clinic location
-        mock_mode (bool): If True, defaults to mock mode
-        mode (str, optional): "mock" or "google_maps"
-
-    Returns:
-        dict: {
-            "distance_km": float,
-            "travel_time_minutes": float,
-            "traffic_level": str ("Low", "Medium", "High")
-        }
     """
-    if not (-90.0 <= patient_latitude <= 90.0 and -90.0 <= clinic_latitude <= 90.0):
-        raise ValueError("Latitude must be between -90.0 and 90.0 degrees.")
-    if not (-180.0 <= patient_longitude <= 180.0 and -180.0 <= clinic_longitude <= 180.0):
-        raise ValueError("Longitude must be between -180.0 and 180.0 degrees.")
+    validate_coordinates(patient_latitude, patient_longitude, "Patient coordinates")
+    validate_coordinates(clinic_latitude, clinic_longitude, "Clinic coordinates")
 
-    _load_env_file()
-    selected_mode = (mode or os.getenv("MAPS_MODE") or ("mock" if mock_mode else "google_maps")).lower()
-    api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+    selected_mode = mode or ("mock" if mock_mode else "google_maps")
+    active_provider = provider or get_maps_provider(mode=selected_mode)
 
-    if selected_mode in ("google_maps", "google", "live", "routes_api") and api_key:
-        try:
-            gmaps_res = fetch_google_maps_eta(
-                patient_latitude, patient_longitude, clinic_latitude, clinic_longitude, api_key
-            )
-            return {
-                "distance_km": gmaps_res["distance_km"],
-                "travel_time_minutes": gmaps_res["travel_minutes"],
-                "traffic_level": gmaps_res["traffic"],
-            }
-        except Exception as e:
-            logger.warning(f"Google Maps API call failed: {e}. Falling back to mock mode.")
+    eta_res = active_provider.calculate_eta(patient_latitude, patient_longitude, clinic_latitude, clinic_longitude)
+    return {
+        "distance_km": eta_res["distance_km"],
+        "travel_time_minutes": eta_res["travel_minutes"],
+        "traffic_level": eta_res["traffic_level"],
+    }
 
-    # Default Mock Mode (MVP)
-    patient_coord = Coordinates(latitude=patient_latitude, longitude=patient_longitude)
-    clinic_coord = Coordinates(latitude=clinic_latitude, longitude=clinic_longitude)
 
-    distance_km = haversine_distance(patient_coord, clinic_coord)
-    status, multiplier = estimate_traffic_condition(clinic_latitude, clinic_longitude)
+def fetch_queue_eta(token_number: Optional[str] = "A-102") -> dict:
+    """
+    Mock Queue ETA Service helper for MVP integration.
+    Simulates fetching estimated appointment time from the Queue module response.
+    """
+    resolved_token = (token_number or "A-102").upper().strip()
+    mock_schedule = {
+        "A-101": "18:00",
+        "A-102": "18:30",
+        "A-103": "19:00",
+        "B-201": "14:15",
+    }
+    estimated_time = mock_schedule.get(resolved_token, "18:30")
+    logger.info(f"fetch_queue_eta: token_number={resolved_token} -> appointment_time={estimated_time}")
+    return {
+        "token_number": resolved_token,
+        "appointment_time": estimated_time,
+    }
 
-    if status == TrafficStatus.LOW:
-        traffic_level = "Low"
-        traffic_factor = 1.0
-    elif status == TrafficStatus.MODERATE:
-        traffic_level = "Medium"
-        traffic_factor = 1.25
-    else:  # HEAVY or SEVERE
-        traffic_level = "High"
-        traffic_factor = 1.70
 
-    base_travel_time_hours = distance_km / 35.0
-    travel_time_minutes = base_travel_time_hours * 60.0 * traffic_factor
+def generate_travel_summary(
+    patient_lat: float,
+    patient_lng: float,
+    clinic_lat: float,
+    clinic_lng: float,
+    token_number: Optional[str] = "A-102",
+    appointment_time: Optional[str] = None,
+    safety_buffer: float = 10.0,
+    mode: Optional[str] = None,
+    provider: Optional[BaseMapsProvider] = None,
+) -> dict:
+    """
+    Generate combined travel summary accepting Queue ETA token_number or appointment_time.
+    Calculates travel ETA and leave home time into a single unified response.
+    """
+    validate_coordinates(patient_lat, patient_lng, "Patient coordinates")
+    validate_coordinates(clinic_lat, clinic_lng, "Clinic coordinates")
+
+    resolved_token = token_number or "A-102"
+
+    if not appointment_time:
+        queue_res = fetch_queue_eta(resolved_token)
+        appt_time_str = queue_res["appointment_time"]
+    else:
+        appt_time_str = appointment_time
+
+    validate_appointment_time(appt_time_str)
+
+    active_provider = provider or get_maps_provider(mode=mode)
+    eta_res = active_provider.calculate_eta(
+        patient_lat=patient_lat,
+        patient_lng=patient_lng,
+        clinic_lat=clinic_lat,
+        clinic_lng=clinic_lng,
+    )
+
+    leave_res = calculate_leave_time(
+        appointment_time=appt_time_str,
+        travel_minutes=eta_res["travel_minutes"],
+        safety_buffer=safety_buffer,
+    )
+
+    logger.info(
+        f"generate_travel_summary: token_number={resolved_token}, provider={active_provider.__class__.__name__}, "
+        f"appointment_time={appt_time_str}, distance_km={eta_res['distance_km']}, "
+        f"travel_minutes={eta_res['travel_minutes']}, traffic_level={eta_res['traffic_level']}, "
+        f"leave_home_at={leave_res['leave_time']}"
+    )
 
     return {
-        "distance_km": round(distance_km, 2),
-        "travel_time_minutes": round(travel_time_minutes, 1),
-        "traffic_level": traffic_level,
+        "token_number": resolved_token,
+        "appointment_time": appt_time_str,
+        "distance_km": eta_res["distance_km"],
+        "travel_minutes": eta_res["travel_minutes"],
+        "traffic_level": eta_res["traffic_level"],
+        "leave_home_at": leave_res["leave_time"],
     }
 
 
@@ -259,10 +278,16 @@ class MapsTrafficService:
     Google Maps Routes API mode.
     """
 
-    def __init__(self, api_key: Optional[str] = None, mode: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        mode: Optional[str] = None,
+        provider: Optional[BaseMapsProvider] = None,
+    ):
         _load_env_file()
         self.api_key = api_key or os.getenv("GOOGLE_MAPS_API_KEY")
         self.mode = (mode or os.getenv("MAPS_MODE") or "mock").lower()
+        self.provider = provider or get_maps_provider(mode=self.mode, api_key=self.api_key)
 
     def calculate_route(self, request: RouteRequest) -> RouteResponse:
         """
@@ -417,6 +442,7 @@ class MapsTrafficService:
             clinic_longitude=clinic_longitude,
             mock_mode=mock_mode,
             mode=self.mode,
+            provider=self.provider,
         )
         return TravelETAResponse(**result)
 
@@ -436,6 +462,7 @@ class MapsTrafficService:
             clinic_lat=clinic_lat,
             clinic_lng=clinic_lng,
             mode=self.mode,
+            provider=self.provider,
         )
         return MapsETAResponse(**result)
 
@@ -458,3 +485,38 @@ class MapsTrafficService:
             safety_buffer_minutes=safety_buffer_minutes,
         )
         return LeaveTimeResponse(**res)
+
+    def fetch_queue_eta(self, token_number: str = "A-102") -> QueueETAResponse:
+        """
+        Fetch estimated appointment time from Queue module by token number.
+        """
+        res = fetch_queue_eta(token_number)
+        return QueueETAResponse(**res)
+
+    def generate_travel_summary(
+        self,
+        patient_lat: float,
+        patient_lng: float,
+        clinic_lat: float,
+        clinic_lng: float,
+        token_number: Optional[str] = "A-102",
+        appointment_time: Optional[str] = None,
+        safety_buffer: float = 10.0,
+    ) -> TravelSummaryResponse:
+        """
+        Generate combined travel summary accepting Queue ETA token_number or appointment_time.
+        """
+        res = generate_travel_summary(
+            patient_lat=patient_lat,
+            patient_lng=patient_lng,
+            clinic_lat=clinic_lat,
+            clinic_lng=clinic_lng,
+            token_number=token_number,
+            appointment_time=appointment_time,
+            safety_buffer=safety_buffer,
+            mode=self.mode,
+            provider=self.provider,
+        )
+        return TravelSummaryResponse(**res)
+
+
