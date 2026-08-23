@@ -30,6 +30,8 @@ from .models import (
     TravelETAResponse,
     MapsETARequest,
     MapsETAResponse,
+    LeaveTimeRequest,
+    LeaveTimeResponse,
 )
 from .utils import (
     haversine_distance,
@@ -125,6 +127,7 @@ def fetch_google_maps_eta(
         "distance_km": distance_km,
         "travel_minutes": travel_minutes,
         "traffic": traffic_level,
+        "traffic_level": traffic_level,
     }
 
 
@@ -144,7 +147,8 @@ def calculate_maps_eta(
     {
         "distance_km": float,
         "travel_minutes": float,
-        "traffic": str ("Low", "Medium", "High")
+        "traffic": str ("Low", "Medium", "High"),
+        "traffic_level": str ("Low", "Medium", "High")
     }
     """
     _load_env_file()
@@ -169,6 +173,7 @@ def calculate_maps_eta(
         "distance_km": res["distance_km"],
         "travel_minutes": round(res["travel_time_minutes"]),
         "traffic": res["traffic_level"],
+        "traffic_level": res["traffic_level"],
     }
 
 
@@ -436,15 +441,20 @@ class MapsTrafficService:
 
     def calculate_leave_time(
         self,
-        estimated_appointment_time: str,
-        travel_minutes: float,
-        safety_buffer_minutes: float = 10,
-    ) -> dict:
+        appointment_time: Optional[str] = None,
+        travel_minutes: float = 0.0,
+        safety_buffer: float = 10.0,
+        estimated_appointment_time: Optional[str] = None,
+        safety_buffer_minutes: Optional[float] = None,
+    ) -> LeaveTimeResponse:
         """
         Calculate recommended departure time and total journey buffer.
         """
-        return calculate_leave_time(
-            estimated_appointment_time=estimated_appointment_time,
+        res = calculate_leave_time(
+            appointment_time=appointment_time,
             travel_minutes=travel_minutes,
+            safety_buffer=safety_buffer,
+            estimated_appointment_time=estimated_appointment_time,
             safety_buffer_minutes=safety_buffer_minutes,
         )
+        return LeaveTimeResponse(**res)

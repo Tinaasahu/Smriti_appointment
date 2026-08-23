@@ -4,7 +4,7 @@ Utility functions for geospatial computations, distance formulas, and traffic es
 
 import math
 from datetime import datetime, timedelta
-from typing import Tuple
+from typing import Tuple, Optional
 from .models import Coordinates, TrafficStatus, TransportMode
 
 
@@ -149,30 +149,40 @@ def generate_mock_steps(origin: Coordinates, destination: Coordinates, mode: Tra
 
 
 def calculate_leave_time(
-    estimated_appointment_time: str,
-    travel_minutes: float,
-    safety_buffer_minutes: float = 10,
+    appointment_time: Optional[str] = None,
+    travel_minutes: float = 0.0,
+    safety_buffer: float = 10.0,
+    estimated_appointment_time: Optional[str] = None,
+    safety_buffer_minutes: Optional[float] = None,
 ) -> dict:
     """
     Calculate recommended home departure time and total journey buffer.
 
     Args:
-        estimated_appointment_time (str): Scheduled appointment time in "HH:MM" format (24-hour).
+        appointment_time (str, optional): Scheduled appointment time in "HH:MM" format (24-hour).
         travel_minutes (float): Travel duration in minutes.
-        safety_buffer_minutes (float): Safety buffer in minutes.
+        safety_buffer (float): Safety buffer in minutes (default 10).
+        estimated_appointment_time (str, optional): Alias for appointment_time.
+        safety_buffer_minutes (float, optional): Alias for safety_buffer.
 
     Returns:
         dict: {
             "leave_time": str,  # e.g. "18:02"
-            "total_journey_buffer_minutes": float  # travel_minutes + safety_buffer_minutes
+            "total_journey_buffer_minutes": float  # travel_minutes + safety_buffer
         }
     """
+    appt_str = appointment_time or estimated_appointment_time
+    if not appt_str:
+        raise ValueError("appointment_time must be provided in 'HH:MM' format.")
+
+    buf = safety_buffer if safety_buffer_minutes is None else safety_buffer_minutes
+
     try:
-        appt_time = datetime.strptime(estimated_appointment_time, "%H:%M")
+        appt_time = datetime.strptime(appt_str, "%H:%M")
     except ValueError:
         raise ValueError("estimated_appointment_time must be in 'HH:MM' format.")
 
-    total_buffer = travel_minutes + safety_buffer_minutes
+    total_buffer = travel_minutes + buf
     leave_dt = appt_time - timedelta(minutes=total_buffer)
     leave_time_str = leave_dt.strftime("%H:%M")
 
@@ -180,4 +190,5 @@ def calculate_leave_time(
         "leave_time": leave_time_str,
         "total_journey_buffer_minutes": round(total_buffer, 1),
     }
+
 

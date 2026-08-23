@@ -156,16 +156,49 @@ class MapsETAResponse(BaseModel):
     distance_km: float = Field(..., description="Distance in kilometers")
     travel_minutes: float = Field(..., description="Travel time in minutes")
     traffic: str = Field(..., description="Traffic congestion level (Low, Medium, High)")
+    traffic_level: str = Field(..., description="Traffic congestion level (Low, Medium, High)")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "distance_km": 4.8,
                 "travel_minutes": 18,
-                "traffic": "Medium"
+                "traffic": "Medium",
+                "traffic_level": "Medium"
             }
         }
     )
+
+
+class LeaveTimeRequest(BaseModel):
+    appointment_time: str = Field(..., description="Scheduled appointment time in HH:MM format (24-hour)")
+    travel_minutes: float = Field(..., ge=0, description="Estimated travel time in minutes")
+    safety_buffer: float = Field(default=10.0, ge=0, description="Safety buffer in minutes")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "appointment_time": "18:30",
+                "travel_minutes": 18.0,
+                "safety_buffer": 10.0
+            }
+        }
+    )
+
+
+class LeaveTimeResponse(BaseModel):
+    leave_time: str = Field(..., description="Recommended leave time in HH:MM format (24-hour)")
+    total_journey_buffer_minutes: float = Field(..., description="Total travel time plus safety buffer in minutes")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "leave_time": "18:02",
+                "total_journey_buffer_minutes": 28.0
+            }
+        }
+    )
+
 
 
 
