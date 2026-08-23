@@ -133,6 +133,17 @@ def test_calculate_leave_time_standard():
     assert result["total_journey_buffer_minutes"] == 28
 
 
+def test_calculate_leave_time_parameter_names():
+    # Using appointment_time and safety_buffer kwargs
+    result = calculate_leave_time(
+        appointment_time="14:15",
+        travel_minutes=25,
+        safety_buffer=15,
+    )
+    assert result["leave_time"] == "13:35"
+    assert result["total_journey_buffer_minutes"] == 40
+
+
 def test_calculate_leave_time_midnight_rollover():
     # Appointment at 00:15, 20 min travel, 10 min buffer -> Leave at 23:45
     result = calculate_leave_time(
@@ -153,7 +164,7 @@ def test_calculate_leave_time_invalid_time_format():
         )
 
 
-# FastAPI Endpoint Integration Test
+# FastAPI Endpoint Integration Tests
 def test_fastapi_maps_eta_endpoint(api_client):
     payload = {
         "patient_lat": 25.4358,
@@ -167,4 +178,31 @@ def test_fastapi_maps_eta_endpoint(api_client):
     assert "distance_km" in data
     assert "travel_minutes" in data
     assert "traffic" in data
+    assert "traffic_level" in data
     assert data["traffic"] in ["Low", "Medium", "High"]
+    assert data["traffic_level"] == data["traffic"]
+
+
+def test_fastapi_maps_leave_time_endpoint(api_client):
+    payload = {
+        "appointment_time": "18:30",
+        "travel_minutes": 18,
+        "safety_buffer": 10,
+    }
+    response = api_client.post("/maps/leave-time", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["leave_time"] == "18:02"
+    assert data["total_journey_buffer_minutes"] == 28.0
+
+
+def test_fastapi_maps_leave_time_endpoint_invalid_format(api_client):
+    payload = {
+        "appointment_time": "25:99",
+        "travel_minutes": 18,
+        "safety_buffer": 10,
+    }
+    response = api_client.post("/maps/leave-time", json=payload)
+    assert response.status_code == 400
+    assert "estimated_appointment_time must be in 'HH:MM' format" in response.json()["detail"]
+

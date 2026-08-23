@@ -17,6 +17,8 @@ from .models import (
     TravelETAResponse,
     MapsETARequest,
     MapsETAResponse,
+    LeaveTimeRequest,
+    LeaveTimeResponse,
 )
 from .service import MapsTrafficService
 
@@ -183,5 +185,32 @@ async def calculate_maps_eta_endpoint(request: MapsETARequest) -> MapsETARespons
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error calculating maps ETA: {str(e)}",
         )
+
+
+@maps_router.post(
+    "/leave-time",
+    response_model=LeaveTimeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Calculate Leave Home Time",
+    description="Calculates recommended leave time and total journey buffer given appointment time, travel minutes, and safety buffer.",
+)
+async def calculate_leave_time_endpoint(request: LeaveTimeRequest) -> LeaveTimeResponse:
+    try:
+        return service.calculate_leave_time(
+            appointment_time=request.appointment_time,
+            travel_minutes=request.travel_minutes,
+            safety_buffer=request.safety_buffer,
+        )
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error calculating leave time: {str(e)}",
+        )
+
 
 

@@ -4,7 +4,7 @@
 The `maps_traffic` module provides geospatial distance calculation, travel time estimation, traffic congestion assessment, departure timing recommendations ("Leave Home Time"), and routing utilities for the **Smriti** queue and appointment management system.
 
 It supports dual operational modes with uniform response contracts:
-1. **Mock Mode (Default for MVP)**: Fast, offline geospatial and traffic estimation using the Haversine distance formula and peak-hour time-of-day traffic modeling.
+1. **Mock Mode (Default for MVP)**: Fast, offline geospatial and traffic estimation using the Haversine distance formula and peak-hour time-of-day traffic modeling. Works without an external API key.
 2. **Google Maps API Mode**: Live traffic and distance computation using the Google Maps API when configured via environment variables.
 
 ---
@@ -24,11 +24,11 @@ backend/maps_traffic/
 
 ---
 
-## 🚀 API Endpoint
+## 🚀 API Endpoints
 
-### `POST /maps/eta`
+### 1. `POST /maps/eta`
 
-Calculates distance, travel time, and traffic level between patient and clinic coordinates.
+Calculates distance, travel time, and traffic congestion level between patient and clinic coordinates.
 
 #### **Request Body**
 ```json
@@ -45,22 +45,34 @@ Calculates distance, travel time, and traffic level between patient and clinic c
 {
   "distance_km": 1.57,
   "travel_minutes": 3,
-  "traffic": "Medium"
+  "traffic": "Medium",
+  "traffic_level": "Medium"
 }
 ```
 
 #### **Validation & Error Handling (`422 Unprocessable Entity`)**
 Pydantic validates that latitudes are between `-90.0` and `90.0` and longitudes are between `-180.0` and `180.0`.
+
+---
+
+### 2. `POST /maps/leave-time`
+
+Calculates recommended home departure time and total journey buffer for patient appointments.
+
+#### **Request Body**
 ```json
 {
-  "detail": [
-    {
-      "type": "less_than_equal",
-      "loc": ["body", "patient_lat"],
-      "msg": "Input should be less than or equal to 90",
-      "input": 125.4358
-    }
-  ]
+  "appointment_time": "18:30",
+  "travel_minutes": 18.0,
+  "safety_buffer": 10.0
+}
+```
+
+#### **Response Body (`200 OK`)**
+```json
+{
+  "leave_time": "18:02",
+  "total_journey_buffer_minutes": 28.0
 }
 ```
 
@@ -76,21 +88,21 @@ Calculates recommended home departure time and total journey buffer for patient 
 from backend.maps_traffic import calculate_leave_time
 
 result = calculate_leave_time(
-    estimated_appointment_time="18:30",
+    appointment_time="18:30",
     travel_minutes=18,
-    safety_buffer_minutes=10,
+    safety_buffer=10,
 )
 
 print(result)
 # Output:
 # {
 #   "leave_time": "18:02",
-#   "total_journey_buffer_minutes": 28
+#   "total_journey_buffer_minutes": 28.0
 # }
 ```
 
-- **Formula**: `total_journey_buffer = travel_minutes + safety_buffer_minutes`
-- **Departure Time**: `estimated_appointment_time - total_journey_buffer` (handles 24-hour clock and midnight roll-overs seamlessly).
+- **Formula**: `total_journey_buffer = travel_minutes + safety_buffer`
+- **Departure Time**: `appointment_time - total_journey_buffer` (handles 24-hour clock and midnight roll-overs seamlessly).
 
 ---
 
@@ -104,7 +116,7 @@ from backend.maps_traffic import maps_router, maps_traffic_router
 
 app = FastAPI(title="Smriti Backend")
 
-# Register /maps/eta endpoint
+# Register /maps/eta and /maps/leave-time endpoints
 app.include_router(maps_router)
 
 # Register /maps-traffic/* endpoints
