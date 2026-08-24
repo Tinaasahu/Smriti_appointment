@@ -1,0 +1,213 @@
+from fastapi import APIRouter, HTTPException, Query
+
+from app.supabase_client import supabase
+
+
+router = APIRouter(
+    prefix="/api/v1/queue",
+    tags=["Queue"]
+)
+
+
+@router.get("/doctor/{doctor_id}")
+def get_doctor_queue(
+    doctor_id: str,
+    queue_date: str = Query(...)
+):
+    try:
+        result = (
+            supabase
+            .table("queue_entries")
+            .select(
+                "id, appointment_id, doctor_id, queue_date, "
+                "token_number, status, joined_at, called_at, "
+                "consultation_started_at, consultation_completed_at, "
+                "created_at"
+            )
+            .eq("doctor_id", doctor_id)
+            .eq("queue_date", queue_date)
+            .order("token_number", desc=False)
+            .execute()
+        )
+
+        entries = result.data or []
+
+        return {
+            "success": True,
+            "doctor_id": doctor_id,
+            "queue_date": queue_date,
+            "total_entries": len(entries),
+            "queue": entries
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to retrieve queue"
+        )
+@router.get("/patient/{appointment_id}")
+def get_patient_queue_status(appointment_id: str):
+
+    try:
+        result = (
+            supabase
+            .table("queue_entries")
+            .select(
+                "id, appointment_id, doctor_id, queue_date, "
+                "token_number, status, joined_at, called_at, "
+                "consultation_started_at, consultation_completed_at"
+            )
+            .eq("appointment_id", appointment_id)
+            .single()
+            .execute()
+        )
+
+        patient_entry = result.data
+
+        if not patient_entry:
+            raise HTTPException(
+                status_code=404,
+                detail="Queue entry not found"
+            )
+
+        doctor_id = patient_entry["doctor_id"]
+        queue_date = patient_entry["queue_date"]
+        patient_token = patient_entry["token_number"]
+
+        queue_result = (
+            supabase
+            .table("queue_entries")
+            .select("token_number, status")
+            .eq("doctor_id", doctor_id)
+            .eq("queue_date", queue_date)
+            .in_(
+                "status",
+                ["waiting", "called", "in_consultation"]
+            )
+            .lt("token_number", patient_token)
+            .order("token_number")
+            .execute()
+        )
+
+        people_ahead = len(queue_result.data or [])
+
+        return {
+            "success": True,
+            "appointment_id": appointment_id,
+            "your_token": patient_token,
+            "people_ahead": people_ahead,
+            "status": patient_entry["status"]
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to retrieve patient queue status"
+        )
+@router.get("/patient/{appointment_id}/eta")
+def get_patient_eta(appointment_id: str):
+
+    try:
+        # Get patient's queue entry
+        patient_result = (
+            supabase
+            .table("queue_entries")
+            .select(
+                "appointment_id, doctor_id, queue_date, "
+                "token_number, status"
+            )
+            .eq("appointment_id", appointment_id)
+            .single()
+            .execute()
+        )
+
+        patient = patient_result.data
+
+        if not patient:
+            raise HTTPException(
+                status_code=404,
+                detail="Queue entry not found"
+            )
+
+        doctor_id = patient["doctor_id"]
+        queue_date = patient["queue_date"]
+        patient_token = patient["token_number"]
+
+        # Get doctor's average consultation time
+        doctor_result = (
+            supabase
+            .table("doctors")
+            .select(
+                "average_consultation_minutes, is_active"
+            )
+            .eq("id", doctor_id)
+            .single()
+            .execute()
+        )
+
+        doctor = doctor_result.data
+
+        if not doctor:
+            raise HTTPException(
+                status_code=404,
+                detail="Doctor not found"
+            )
+
+        if not doctor["is_active"]:
+            raise HTTPException(
+                status_code=409,
+                detail="Doctor is currently inactive"
+            )
+
+        average_minutes = doctor[
+            "average_consultation_minutes"
+        ]
+
+        if average_minutes is None or average_minutes <= 0:
+            raise HTTPException(
+                status_code=500,
+                detail="Doctor consultation time is not configured"
+            )
+
+        # Find waiting patients ahead
+        ahead_result = (
+            supabase
+            .table("queue_entries")
+            .select("token_number, status")
+            .eq("doctor_id", doctor_id)
+            .eq("queue_date", queue_date)
+            .lt("token_number", patient_token)
+            .eq("status", "waiting")
+            .order("token_number")
+            .execute()
+        )
+
+        patients_ahead = ahead_result.data or []
+
+        people_ahead = len(patients_ahead)
+
+        # Baseline waiting-time calculation
+        estimated_wait_minutes = (
+            people_ahead * average_minutes
+        )
+
+        return {
+            "success": True,
+            "appointment_id": appointment_id,
+            "your_token": patient_token,
+            "people_ahead": people_ahead,
+            "doctor_average_consultation_minutes": average_minutes,
+            "estimated_wait_minutes": estimated_wait_minutes
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to calculate estimated waiting time"
+        )
