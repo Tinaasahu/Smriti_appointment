@@ -6,11 +6,12 @@ WORKDIR /app
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source code
+# Copy backend source code and prediction module
 COPY backend /app/backend
+COPY prediction /app/prediction
 
-# Set Python path to ensure module imports resolve correctly
-ENV PYTHONPATH=/app/backend
+# Set PYTHONPATH so python imports 'app' and 'prediction' packages
+ENV PYTHONPATH=/app:/app/backend
 
 WORKDIR /app/backend
 

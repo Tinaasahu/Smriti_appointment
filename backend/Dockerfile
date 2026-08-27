@@ -2,17 +2,19 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install requirements
+# Install dependencies
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all backend app files
-COPY . /app
+# Copy backend files
+COPY . /app/backend
 
-# Ensure PYTHONPATH includes /app
-ENV PYTHONPATH=/app
+# Set PYTHONPATH
+ENV PYTHONPATH=/app:/app/backend
+
+WORKDIR /app/backend
 
 EXPOSE 8000
 
-# Start FastAPI server
+# Execute FastAPI with Uvicorn using dynamic Railway $PORT
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
