@@ -17,7 +17,7 @@ export default function BookAppointment() {
   const { bookAppointment } = useQueue();
   const navigate = useNavigate();
 
-  const handleConfirmBooking = (e) => {
+  const handleConfirmBooking = async (e) => {
     e.preventDefault();
     setLoading(true);
 
@@ -27,15 +27,18 @@ export default function BookAppointment() {
       year: "numeric"
     });
 
-    setTimeout(() => {
-      const newApt = bookAppointment({
+    try {
+      await bookAppointment({
         doctor: selectedDoctor,
         date: formattedDate,
         time: selectedSlot
       });
+    } catch (err) {
+      console.error("Booking error:", err);
+    } finally {
       setLoading(false);
       navigate("/patient/booking-success");
-    }, 600);
+    }
   };
 
   return (

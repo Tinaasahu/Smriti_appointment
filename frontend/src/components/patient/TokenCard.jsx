@@ -99,7 +99,7 @@ export default function TokenCard({ appointment, prediction, showActions = true 
               <p className="text-slate-500 font-medium">{doctor?.specialization}</p>
               <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                 <MapPin className="w-3 h-3" />
-                <span>{doctor?.hospitalName || "City Care Hospital, Delhi"}</span>
+                <span>{doctor?.hospitalName || "Ojha Multispeciality Hospital, Prayagraj"}</span>
               </p>
             </div>
           </div>

@@ -4,25 +4,30 @@ import {
   CheckCircle2, 
   Clock, 
   Navigation, 
-  ShieldAlert, 
-  ArrowRight,
-  Sparkles
+  Zap,
+  MapPin,
+  Car
 } from "lucide-react";
 import Button from "../common/Button";
+import { useQueue } from "../../context/QueueContext";
 
 export default function LeaveNowAlert({ 
   leaveAlert, 
   travelData, 
-  appointment, 
   onGetDirections 
 }) {
+  const { attendingSpeed, patientLocation } = useQueue();
   const shouldLeaveNow = leaveAlert?.shouldLeaveNow ?? true;
   const urgency = leaveAlert?.urgency ?? "urgent";
   const travelMins = leaveAlert?.travelMinutes ?? 18;
   const estimatedWait = leaveAlert?.estimatedWaitMinutes ?? 15;
   const safetyBuffer = leaveAlert?.safetyBuffer ?? 10;
-  const clinicAddress = travelData?.clinicLocation?.address || "City Care Hospital, Sector 14, New Delhi";
-  const patientAddress = travelData?.patientLocation?.address || "Connaught Place, New Delhi";
+  const distanceKm = leaveAlert?.distanceKm || travelData?.distanceKm || 4.8;
+  const trafficLevel = leaveAlert?.trafficLevel || travelData?.trafficLevel || "Medium";
+  const patientsAhead = leaveAlert?.patientsAhead ?? 2;
+
+  const clinicAddress = travelData?.clinicLocation?.address || "Ojha Multispeciality Hospital, Anukool Chandra Banarjee Marg, near Parvati Hospital, Tagore Town, Prayagraj, UP 211002";
+  const patientAddress = patientLocation?.address || travelData?.patientLocation?.address || "Connaught Place, New Delhi";
 
   const handleDirections = () => {
     if (onGetDirections) {
@@ -36,52 +41,76 @@ export default function LeaveNowAlert({
   return (
     <div className={`p-6 sm:p-7 rounded-3xl border-2 transition-all shadow-soft relative overflow-hidden ${
       shouldLeaveNow
-        ? "bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 border-amber-300"
+        ? "bg-gradient-to-br from-amber-500/15 via-amber-50 to-orange-100/60 border-amber-400"
+        : urgency === "moderate"
+        ? "bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-50 border-indigo-300"
         : "bg-gradient-to-br from-heal-500/10 via-heal-50 to-emerald-50/50 border-heal-300"
     }`}>
-      {/* Decorative ambient backdrop */}
-      <div className={`absolute top-0 right-0 w-36 h-36 rounded-full blur-2xl pointer-events-none ${
-        shouldLeaveNow ? "bg-amber-200/40" : "bg-heal-200/40"
+      {/* Background glow */}
+      <div className={`absolute top-0 right-0 w-44 h-44 rounded-full blur-2xl pointer-events-none ${
+        shouldLeaveNow ? "bg-amber-300/50" : "bg-heal-200/40"
       }`} />
 
       <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        {/* Left Status & Alert Text */}
+        {/* Left Info */}
         <div className="space-y-3 flex-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-white/90 shadow-sm border border-slate-100">
-            {shouldLeaveNow ? (
-              <>
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
-                <span className="text-amber-700">Departure Recommendation: Leave Now</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-heal-600" />
-                <span className="text-heal-700">Departure Status: You're on Time</span>
-              </>
-            )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-white/90 shadow-sm border ${
+              shouldLeaveNow ? "border-amber-300 text-amber-800" : "border-heal-300 text-heal-800"
+            }`}>
+              {shouldLeaveNow ? (
+                <>
+                  <AlertTriangle className="w-4 h-4 text-amber-600 animate-bounce" />
+                  <span>SMART ALERT: LEAVE HOME NOW</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-heal-600" />
+                  <span>DEPARTURE STATUS: ON TRACK</span>
+                </>
+              )}
+            </div>
+
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/90 text-slate-700 border border-slate-200">
+              <Zap className="w-3.5 h-3.5 text-amber-500" />
+              <span>Doctor Attending Speed: {attendingSpeed} min/patient</span>
+            </div>
           </div>
 
           <div>
             <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {shouldLeaveNow ? "⚠️ Time to head to the clinic!" : "🟢 You have plenty of time."}
+              {shouldLeaveNow 
+                ? "🚨 Doctor pace & traffic alert: Depart for the clinic immediately!" 
+                : urgency === "moderate"
+                ? "🟡 Prepare to leave soon. You have ~15 mins remaining."
+                : "🟢 You have plenty of time. Relax at home."
+              }
             </h3>
-            <p className="mt-1 text-xs sm:text-sm text-slate-600 leading-relaxed max-w-xl">
-              Your estimated travel time is <strong className="text-slate-900">{travelMins} minutes</strong> (with {safetyBuffer} min safety buffer). 
-              Your live queue position indicates you will be called in approximately <strong className="text-slate-900">{estimatedWait} minutes</strong>.
+            <p className="mt-1 text-xs sm:text-sm text-slate-700 leading-relaxed max-w-2xl">
+              Doctor is attending patients at <strong className="text-slate-900">{attendingSpeed} min/patient</strong>. With <strong className="text-slate-900">{patientsAhead} patient{patientsAhead === 1 ? "" : "s"} ahead</strong>, your call is expected in <strong className="text-slate-900">~{estimatedWait} mins</strong>. 
+              Travel distance from your location (<strong className="text-slate-900">{patientAddress}</strong>) is <strong className="text-slate-900">{distanceKm} km</strong> ({travelMins} min travel + {safetyBuffer} min buffer).
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-slate-500 pt-1">
+          <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 pt-1">
             <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-brand-600" />
-              Traffic: <strong>{travelData?.trafficLevel || "Medium"}</strong>
+              <Car className="w-4 h-4 text-brand-600" />
+              <span>Traffic Level: <strong>{trafficLevel}</strong></span>
             </span>
             <span>•</span>
-            <span>Recommended Route: <strong>Ring Road Expressway</strong></span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="w-4 h-4 text-heal-600" />
+              <span>Distance: <strong>{distanceKm} km</strong></span>
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-indigo-600" />
+              <span>Est. Travel: <strong>{travelMins} mins</strong></span>
+            </span>
           </div>
         </div>
 
-        {/* Right CTA Button */}
+        {/* Action Button */}
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
           <Button
             variant={shouldLeaveNow ? "primary" : "success"}

@@ -23,6 +23,7 @@ from .models import (
     TravelSummaryResponse,
 )
 from .service import MapsTrafficService
+from .providers import geocode_address
 
 router = APIRouter(
     prefix="/maps-traffic",
@@ -42,9 +43,8 @@ maps_router = APIRouter(
     },
 )
 
-# Initialize service instance (can be overridden or injected via dependency)
+# Initialize service instance
 service = MapsTrafficService()
-
 
 
 @router.post(
@@ -162,6 +162,26 @@ async def health_check():
     }
 
 
+@maps_router.get(
+    "/geocode",
+    status_code=status.HTTP_200_OK,
+    summary="Geocode Address String",
+    description="Resolves any text query (e.g. 'Saroj Super Speciality Hospital') to actual latitude, longitude, and formatted address.",
+)
+async def geocode_endpoint(address: str = Query(..., description="Address or place name query")):
+    res = geocode_address(address)
+    if not res:
+        raise HTTPException(
+            status_code=status.HTTP_444 if hasattr(status, 'HTTP_444') else 404,
+            detail=f"Location not found for query: '{address}'"
+        )
+    return {
+        "success": True,
+        "query": address,
+        **res
+    }
+
+
 @maps_router.post(
     "/eta",
     response_model=MapsETAResponse,
@@ -243,7 +263,3 @@ async def generate_travel_summary_endpoint(request: TravelSummaryRequest) -> Tra
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating travel summary: {str(e)}",
         )
-
-
-
-

@@ -5,14 +5,8 @@ import {
   CalendarPlus, 
   Calendar, 
   ListOrdered, 
-  MapPin, 
-  FileText, 
-  Pill, 
-  FileCheck, 
-  User, 
-  Settings, 
-  LogOut,
   Navigation,
+  LogOut,
   Sparkles
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -34,11 +28,6 @@ export default function Sidebar({ isOpen, onClose }) {
       badge: prediction?.status === "waiting" ? `${prediction.patientsAhead} Ahead` : "Live"
     },
     { name: "Travel & Route", path: "/patient/travel", icon: Navigation },
-    { name: "My Records", path: "/patient/records", icon: FileText, count: 12 },
-    { name: "Prescriptions", path: "/patient/prescriptions", icon: Pill, count: 5 },
-    { name: "Reports", path: "/patient/reports", icon: FileCheck, count: 15 },
-    { name: "Profile", path: "/patient/profile", icon: User },
-    { name: "Settings", path: "/patient/settings", icon: Settings },
   ];
 
   const handleLogout = () => {
@@ -93,12 +82,6 @@ export default function Sidebar({ isOpen, onClose }) {
                     {item.badge && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-heal-100 text-heal-700"}`}>
                         {item.badge}
-                      </span>
-                    )}
-
-                    {item.count !== undefined && !item.badge && (
-                      <span className={`text-[11px] font-semibold ${isActive ? "text-white/80" : "text-slate-400"}`}>
-                        {item.count}
                       </span>
                     )}
                   </>

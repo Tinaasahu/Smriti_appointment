@@ -72,7 +72,7 @@ export default function Navbar({ onMenuToggle, isMobileMenuOpen }) {
             {user?.name ? user.name.split(" ").map(n => n[0]).join("") : "RK"}
           </div>
           <div className="hidden sm:block text-left">
-            <p className="text-xs font-bold text-slate-800 leading-tight">{user?.name || "Ramesh Kumar"}</p>
+            <p className="text-xs font-bold text-slate-800 leading-tight">{user?.name || "Tina Sahu"}</p>
             <p className="text-[10px] text-slate-400 leading-tight">{user?.phone || "+91 9876543210"}</p>
           </div>
           <button

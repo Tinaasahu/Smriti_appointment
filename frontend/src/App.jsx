@@ -5,6 +5,7 @@ import { QueueProvider } from "./context/QueueContext";
 
 // Layouts
 import PatientLayout from "./layouts/PatientLayout";
+import DoctorLayout from "./layouts/DoctorLayout";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
@@ -17,18 +18,7 @@ import TokenView from "./pages/patient/TokenView";
 import LiveQueue from "./pages/patient/LiveQueue";
 import TravelPlanning from "./pages/patient/TravelPlanning";
 import MyAppointments from "./pages/patient/MyAppointments";
-
-// Placeholder for secondary sub-pages
-function PlaceholderView({ title }) {
-  return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <h1 className="text-2xl font-extrabold text-slate-900">{title}</h1>
-      <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-soft text-center text-slate-500 text-sm">
-        <p className="font-semibold">{title} module active and synchronized with patient health vault.</p>
-      </div>
-    </div>
-  );
-}
+import DoctorDashboard from "./pages/doctor/DoctorDashboard";
 
 export default function App() {
   return (
@@ -51,13 +41,12 @@ export default function App() {
               <Route path="live-queue" element={<LiveQueue />} />
               <Route path="travel" element={<TravelPlanning />} />
               <Route path="appointments" element={<MyAppointments />} />
-              
-              {/* Secondary Healthcare Vault Routes */}
-              <Route path="records" element={<PlaceholderView title="Medical Records" />} />
-              <Route path="prescriptions" element={<PlaceholderView title="Prescriptions" />} />
-              <Route path="reports" element={<PlaceholderView title="Lab & Diagnostic Reports" />} />
-              <Route path="profile" element={<PlaceholderView title="Patient Profile" />} />
-              <Route path="settings" element={<PlaceholderView title="Notification & Account Settings" />} />
+            </Route>
+
+            {/* Exclusive Doctor OPD Portal */}
+            <Route path="/doctor" element={<DoctorLayout />}>
+              <Route index element={<DoctorDashboard />} />
+              <Route path="queue" element={<DoctorDashboard />} />
             </Route>
 
             {/* Fallback */}

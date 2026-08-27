@@ -12,7 +12,10 @@ import {
   ArrowRight, 
   Sparkles,
   ChevronRight,
-  Plus
+  Plus,
+  Navigation,
+  ShieldCheck,
+  Compass
 } from "lucide-react";
 import StatCard from "../../components/common/StatCard";
 import Badge from "../../components/common/Badge";
@@ -23,14 +26,21 @@ import { useQueue } from "../../context/QueueContext";
 
 export default function PatientDashboard() {
   const { user } = useAuth();
-  const { activeAppointment, prediction, leaveAlert, travelData, advanceQueueNext } = useQueue();
+  const { activeAppointment, prediction, leaveAlert, travelData, backendOrchestration } = useQueue();
   const navigate = useNavigate();
 
-  const userName = user?.name || "Ramesh Kumar";
+  const userName = user?.name || "Tina Sahu";
   const doctor = activeAppointment?.doctor;
-  const tokenNumber = activeAppointment?.tokenNumber || "TKN-103";
+  const tokenNumber = backendOrchestration?.token_number || activeAppointment?.tokenNumber || "TKN-103";
   const estimatedWait = prediction?.estimatedWaitMinutes ?? 15;
   const patientsAhead = prediction?.patientsAhead ?? 2;
+  const estimatedApptTime = prediction?.estimatedAppointmentTime || "10:45 AM";
+
+  // Maps logistics fields
+  const distanceKm = backendOrchestration?.maps?.distance_km ?? travelData?.distanceKm ?? 4.8;
+  const travelMinutes = backendOrchestration?.maps?.travel_minutes ?? travelData?.travelMinutes ?? 18;
+  const trafficLevel = backendOrchestration?.maps?.traffic_level ?? travelData?.trafficLevel ?? "Medium";
+  const leaveHomeAt = backendOrchestration?.maps?.leave_home_at ?? travelData?.leaveHomeAt ?? "10:02 AM";
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -59,7 +69,7 @@ export default function PatientDashboard() {
         </div>
       </div>
 
-      {/* Top 4 Summary Cards matching reference Screen 6 */}
+      {/* Top 4 Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Next Appointment"
@@ -87,7 +97,7 @@ export default function PatientDashboard() {
         <StatCard
           title="Est. Wait Time"
           value={`${estimatedWait} min`}
-          subtitle="AI queue calculation"
+          subtitle={`Appt at ${estimatedApptTime}`}
           variant="green"
           icon={Clock}
         />
@@ -103,7 +113,71 @@ export default function PatientDashboard() {
         />
       )}
 
-      {/* Upcoming Appointment Card matching reference Step 6 */}
+      {/* Dedicated 7-Metric Smart Queue & Travel Summary Section */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-brand-950 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-700/50 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-700/60 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-brand-500/20 border border-brand-400/40 flex items-center justify-center text-brand-300">
+              <Compass className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold">Smart Queue & Travel Logistics Summary</h2>
+              <p className="text-xs text-slate-400">Live AI queue estimator & traffic routing synchronised</p>
+            </div>
+          </div>
+
+          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            Realtime Sync Active
+          </span>
+        </div>
+
+        {/* 7 Required Metrics Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {/* 1. Token Number */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Token</p>
+            <p className="text-base font-extrabold text-brand-300 mt-1">{tokenNumber}</p>
+          </div>
+
+          {/* 2. Queue Position */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Queue Position</p>
+            <p className="text-base font-extrabold text-amber-300 mt-1">{patientsAhead} ahead</p>
+          </div>
+
+          {/* 3. Estimated Appointment Time */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Est. Appt Time</p>
+            <p className="text-base font-extrabold text-emerald-300 mt-1">{estimatedApptTime}</p>
+          </div>
+
+          {/* 4. Distance to Clinic */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Distance</p>
+            <p className="text-base font-extrabold text-sky-300 mt-1">{distanceKm} km</p>
+          </div>
+
+          {/* 5. Travel Time */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Travel Time</p>
+            <p className="text-base font-extrabold text-purple-300 mt-1">{travelMinutes} min</p>
+          </div>
+
+          {/* 6. Traffic Level */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Traffic</p>
+            <p className="text-base font-extrabold text-rose-300 mt-1">{trafficLevel}</p>
+          </div>
+
+          {/* 7. Leave Home Time */}
+          <div className="bg-slate-800/80 rounded-2xl p-3.5 border border-slate-700/60 col-span-2 sm:col-span-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leave Home</p>
+            <p className="text-base font-extrabold text-heal-300 mt-1">{leaveHomeAt}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Upcoming Appointment Card */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
@@ -142,7 +216,7 @@ export default function PatientDashboard() {
                   </span>
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{doctor?.hospitalName || "City Care Hospital, Delhi"}</span>
+                    <span>{doctor?.hospitalName || "Ojha Multispeciality Hospital, Prayagraj"}</span>
                   </span>
                 </div>
               </div>
@@ -180,68 +254,6 @@ export default function PatientDashboard() {
         )}
       </div>
 
-      {/* Health Summary 4 Quick Cards matching reference Step 6 */}
-      <div className="space-y-4">
-        <h2 className="text-base sm:text-lg font-extrabold text-slate-900">Health Summary</h2>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {/* Records */}
-          <Link
-            to="/patient/records"
-            className="group p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft hover:shadow-md hover:border-blue-200 transition-all flex items-center gap-3.5"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500">Records</p>
-              <p className="text-xl font-extrabold text-slate-900">{user?.stats?.records || 12}</p>
-            </div>
-          </Link>
-
-          {/* Prescriptions */}
-          <Link
-            to="/patient/prescriptions"
-            className="group p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft hover:shadow-md hover:border-amber-200 transition-all flex items-center gap-3.5"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
-              <Pill className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500">Prescriptions</p>
-              <p className="text-xl font-extrabold text-slate-900">{user?.stats?.prescriptions || 5}</p>
-            </div>
-          </Link>
-
-          {/* Reports */}
-          <Link
-            to="/patient/reports"
-            className="group p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft hover:shadow-md hover:border-heal-200 transition-all flex items-center gap-3.5"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-heal-50 text-heal-600 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
-              <FileCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500">Reports</p>
-              <p className="text-xl font-extrabold text-slate-900">{user?.stats?.reports || 15}</p>
-            </div>
-          </Link>
-
-          {/* Upcoming */}
-          <Link
-            to="/patient/appointments"
-            className="group p-5 rounded-2xl bg-white border border-slate-200/80 shadow-soft hover:shadow-md hover:border-brand-200 transition-all flex items-center gap-3.5"
-          >
-            <div className="w-11 h-11 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold flex-shrink-0 group-hover:scale-105 transition-transform">
-              <CalendarCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500">Upcoming</p>
-              <p className="text-xl font-extrabold text-slate-900">{user?.stats?.upcoming || 2}</p>
-            </div>
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

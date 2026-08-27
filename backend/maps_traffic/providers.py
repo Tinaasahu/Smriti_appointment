@@ -1,15 +1,17 @@
 """
 Maps & Traffic Provider Abstraction Layer.
-Defines BaseMapsProvider interface, MockProvider, and GoogleMapsProvider.
+Defines BaseMapsProvider interface, MockProvider, GoogleMapsProvider, and OSRMProvider (OpenStreetMap Live Routing).
 """
 
 from abc import ABC, abstractmethod
 import os
 import json
 import logging
+import ssl
+import re
 import urllib.request
 import urllib.parse
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Tuple
 
 from .utils import (
     haversine_distance,
@@ -39,6 +41,81 @@ def _load_env_file() -> None:
             break
 
 
+def _fetch_nominatim(q: str, ctx) -> Optional[Dict[str, Union[str, float]]]:
+    """Helper to execute single Nominatim query."""
+    try:
+        encoded = urllib.parse.quote(q.strip())
+        url = f"https://nominatim.openstreetmap.org/search?q={encoded}&format=json&limit=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "SmritiSmartQueue/1.0"})
+        with urllib.request.urlopen(req, timeout=4, context=ctx) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            if data and len(data) > 0:
+                res = data[0]
+                return {
+                    "address": res.get("display_name", q),
+                    "lat": float(res["lat"]),
+                    "lng": float(res["lon"])
+                }
+    except Exception:
+        pass
+    return None
+
+
+def geocode_address(query_str: str) -> Optional[Dict[str, Union[str, float]]]:
+    """
+    Smart Multi-Tier Progressive Geocoding Service.
+    Resolves both exact queries and complex, unstructured address strings (including landmarks, 
+    typos, and extra text e.g., 'Ojha Multispeciality Hospital Prayagraj, near Parvati Hospital...')
+    into real-world latitude, longitude, and formatted address.
+    """
+    if not query_str or not query_str.strip():
+        return None
+
+    raw_query = query_str.strip()
+    ctx = ssl._create_unverified_context()
+
+    # 1. Try verbatim query first
+    res = _fetch_nominatim(raw_query, ctx)
+    if res:
+        return res
+
+    # 2. Try cleaned query (remove landmark noise words like 'near', 'opposite', 'behind', 'next to')
+    cleaned = re.sub(r'\b(near|opposite|opp|behind|next to|above|below)\s+[^,]+', '', raw_query, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    if cleaned != raw_query:
+        res = _fetch_nominatim(cleaned, ctx)
+        if res:
+            return res
+
+    # 3. Extract comma-separated segments & try segment + city/pincode
+    parts = [p.strip() for p in raw_query.split(',') if p.strip()]
+    city_pincode = ' '.join(parts[-2:]) if len(parts) >= 2 else parts[-1] if parts else ''
+
+    for part in parts[:-1]:
+        clean_part = re.sub(r'\b(near|opposite|opp|behind|next to)\b.*', '', part, flags=re.IGNORECASE).strip()
+        if len(clean_part) > 3:
+            candidate = f"{clean_part}, {city_pincode}"
+            res = _fetch_nominatim(candidate, ctx)
+            if res:
+                return res
+
+    # 4. Try pincode search
+    pincode_match = re.search(r'\b\d{6}\b', raw_query)
+    if pincode_match:
+        candidate = f"{pincode_match.group(0)}, India"
+        res = _fetch_nominatim(candidate, ctx)
+        if res:
+            return res
+
+    # 5. Try main city/state segment
+    if parts:
+        res = _fetch_nominatim(parts[-1], ctx)
+        if res:
+            return res
+
+    return None
+
+
 class BaseMapsProvider(ABC):
     """Abstract base class for all Maps & Traffic providers."""
 
@@ -52,20 +129,70 @@ class BaseMapsProvider(ABC):
     ) -> Dict[str, Union[str, float]]:
         """
         Calculate distance, travel duration, and traffic level between two coordinates.
-
-        Returns dict format:
-        {
-            "distance_km": float,
-            "travel_minutes": float,
-            "traffic": str ("Low", "Medium", "High"),
-            "traffic_level": str ("Low", "Medium", "High")
-        }
         """
         pass
 
 
+class OSRMProvider(BaseMapsProvider):
+    """
+    Live OpenStreetMap & OSRM Routing Engine Provider.
+    Calculates actual road driving distance, live route duration, and peak-hour traffic multipliers.
+    """
+
+    def calculate_eta(
+        self,
+        patient_lat: float,
+        patient_lng: float,
+        clinic_lat: float,
+        clinic_lng: float,
+    ) -> Dict[str, Union[str, float]]:
+        validate_coordinates(patient_lat, patient_lng, "Patient coordinates")
+        validate_coordinates(clinic_lat, clinic_lng, "Clinic coordinates")
+
+        try:
+            ctx = ssl._create_unverified_context()
+            # OSRM expects coordinates in format: longitude,latitude
+            url = (
+                f"http://router.project-osrm.org/route/v1/driving/"
+                f"{patient_lng},{patient_lat};{clinic_lng},{clinic_lat}?"
+                f"overview=false"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "SmritiSmartQueue/1.0"})
+
+            with urllib.request.urlopen(req, timeout=6, context=ctx) as response:
+                if response.status == 200:
+                    data = json.loads(response.read().decode("utf-8"))
+                    if data.get("code") == "Ok" and data.get("routes"):
+                        route = data["routes"][0]
+                        distance_km = round(route["distance"] / 1000.0, 2)
+                        base_duration_mins = route["duration"] / 60.0
+
+                        # Apply live peak-hour traffic multiplier
+                        status, multiplier = estimate_traffic_condition(clinic_lat, clinic_lng)
+                        effective_minutes = round(base_duration_mins * multiplier, 1)
+
+                        traffic_level = "Low" if multiplier <= 1.15 else ("Medium" if multiplier <= 1.45 else "High")
+
+                        logger.info(
+                            f"OSRMProvider live ETA: distance={distance_km}km, travel_minutes={effective_minutes}, traffic={traffic_level}"
+                        )
+
+                        return {
+                            "distance_km": distance_km,
+                            "travel_minutes": effective_minutes,
+                            "traffic": traffic_level,
+                            "traffic_level": traffic_level,
+                        }
+        except Exception as e:
+            logger.warning(f"OSRM Routing failed: {e}. Falling back to Haversine estimate.")
+
+        # Fallback calculation if OSRM endpoint times out
+        mock = MockProvider()
+        return mock.calculate_eta(patient_lat, patient_lng, clinic_lat, clinic_lng)
+
+
 class MockProvider(BaseMapsProvider):
-    """Default Mock provider using Haversine distance and peak-hour time-of-day traffic model."""
+    """Fallback Mock provider using Haversine distance and peak-hour time-of-day traffic model."""
 
     def calculate_eta(
         self,
@@ -97,10 +224,6 @@ class MockProvider(BaseMapsProvider):
         travel_time_minutes = base_travel_time_hours * 60.0 * traffic_factor
         rounded_minutes = round(travel_time_minutes, 1)
 
-        logger.info(
-            f"MockProvider ETA calculated: distance={distance_km}km, travel_minutes={rounded_minutes}, traffic={traffic_level}"
-        )
-
         return {
             "distance_km": distance_km,
             "travel_minutes": rounded_minutes,
@@ -128,6 +251,7 @@ class GoogleMapsProvider(BaseMapsProvider):
         validate_coordinates(patient_lat, patient_lng, "Patient coordinates")
         validate_coordinates(clinic_lat, clinic_lng, "Clinic coordinates")
 
+        ctx = ssl._create_unverified_context()
         url = (
             f"https://maps.googleapis.com/maps/api/directions/json?"
             f"origin={patient_lat},{patient_lng}&"
@@ -137,7 +261,7 @@ class GoogleMapsProvider(BaseMapsProvider):
         )
 
         req = urllib.request.Request(url, headers={"User-Agent": "SmritiBackend/1.0"})
-        with urllib.request.urlopen(req, timeout=8) as response:
+        with urllib.request.urlopen(req, timeout=8, context=ctx) as response:
             if response.status != 200:
                 raise RuntimeError(f"Google Maps API HTTP status error: {response.status}")
             data = json.loads(response.read().decode("utf-8"))
@@ -164,10 +288,6 @@ class GoogleMapsProvider(BaseMapsProvider):
         else:
             traffic_level = "High"
 
-        logger.info(
-            f"GoogleMapsProvider ETA calculated: distance={distance_km}km, travel_minutes={travel_minutes}, traffic={traffic_level}"
-        )
-
         return {
             "distance_km": distance_km,
             "travel_minutes": travel_minutes,
@@ -179,19 +299,17 @@ class GoogleMapsProvider(BaseMapsProvider):
 def get_maps_provider(mode: Optional[str] = None, api_key: Optional[str] = None) -> BaseMapsProvider:
     """
     Factory function for obtaining a maps provider instance.
-    Falls back to MockProvider if Google Maps API key is missing or invalid.
+    Uses Google Maps if API key present, or OSRM live routing engine automatically.
     """
     _load_env_file()
-    selected_mode = (mode or os.getenv("MAPS_MODE") or "mock").lower()
+    selected_mode = (mode or os.getenv("MAPS_MODE") or "live").lower()
     key = api_key or os.getenv("GOOGLE_MAPS_API_KEY")
 
-    if selected_mode in ("google_maps", "google", "live", "routes_api"):
-        if key:
-            try:
-                return GoogleMapsProvider(api_key=key)
-            except Exception as e:
-                logger.warning(f"Failed to initialize GoogleMapsProvider: {e}. Falling back to MockProvider.")
-        else:
-            logger.warning("GOOGLE_MAPS_API_KEY missing for google_maps mode. Falling back to MockProvider.")
+    if selected_mode in ("google_maps", "google") and key:
+        try:
+            return GoogleMapsProvider(api_key=key)
+        except Exception as e:
+            logger.warning(f"GoogleMapsProvider initialization failed: {e}. Falling back to OSRMProvider.")
 
-    return MockProvider()
+    # Return OSRM Live OpenStreetMap Routing Engine by default
+    return OSRMProvider()

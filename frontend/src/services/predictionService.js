@@ -3,7 +3,50 @@
  * Consumes wait-time prediction algorithm matching prediction/estimator.py & prediction/schemas.py
  */
 
+import { request } from "./api";
+
 export const predictionService = {
+  /**
+   * Async API call to backend POST /smart-queue/predict
+   */
+  async getSmartQueuePrediction({
+    currentToken,
+    patientToken,
+    averageConsultationTime = 5.0,
+    doctorDelay = 0.0,
+    consultationCount = 20
+  }) {
+    const response = await request("/smart-queue/predict", {
+      method: "POST",
+      body: JSON.stringify({
+        current_token: currentToken,
+        patient_token: patientToken,
+        average_consultation_time: averageConsultationTime,
+        doctor_delay: doctorDelay,
+        consultation_count: consultationCount
+      })
+    });
+
+    if (response) {
+      return {
+        patientsAhead: response.patients_ahead,
+        estimatedWaitMinutes: response.estimated_wait_minutes,
+        estimatedAppointmentTime: response.estimated_appointment_time,
+        confidence: response.confidence,
+        status: response.status
+      };
+    }
+
+    // Fallback to local calculation
+    return this.calculatePrediction({
+      currentToken,
+      patientToken,
+      averageConsultationTime,
+      doctorDelay,
+      consultationCount
+    });
+  },
+
   /**
    * Estimates patient wait time and expected appointment slot based on queue state.
    * Matches prediction/estimator.py logic.
@@ -11,7 +54,7 @@ export const predictionService = {
   calculatePrediction({
     currentToken,
     patientToken,
-    averageConsultationTime = 8.0,
+    averageConsultationTime = 5.0,
     doctorDelay = 0.0,
     consultationCount = 20,
     referenceTime = new Date()
@@ -29,10 +72,13 @@ export const predictionService = {
       confidence = "medium";
     }
 
-    const formatHHMM = (d) => {
-      const hours = String(d.getHours()).padStart(2, '0');
-      const mins = String(d.getMinutes()).padStart(2, '0');
-      return `${hours}:${mins}`;
+    const formatHHMM12 = (d) => {
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 becomes 12
+      return `${hours}:${minutes} ${ampm}`;
     };
 
     // 3. Edge Case: currently being served
@@ -40,7 +86,7 @@ export const predictionService = {
       return {
         patientsAhead: 0,
         estimatedWaitMinutes: 0.0,
-        estimatedAppointmentTime: formatHHMM(referenceTime),
+        estimatedAppointmentTime: formatHHMM12(referenceTime),
         confidence,
         status: "currently_serving"
       };
@@ -51,7 +97,7 @@ export const predictionService = {
       return {
         patientsAhead: 0,
         estimatedWaitMinutes: 0.0,
-        estimatedAppointmentTime: formatHHMM(referenceTime),
+        estimatedAppointmentTime: formatHHMM12(referenceTime),
         confidence,
         status: "token_passed"
       };
@@ -63,7 +109,7 @@ export const predictionService = {
     const estimatedWaitMinutes = Math.max(0.0, Math.round(rawWait * 10) / 10);
 
     const appointmentDate = new Date(referenceTime.getTime() + estimatedWaitMinutes * 60000);
-    const estimatedAppointmentTime = formatHHMM(appointmentDate);
+    const estimatedAppointmentTime = formatHHMM12(appointmentDate);
 
     return {
       patientsAhead,

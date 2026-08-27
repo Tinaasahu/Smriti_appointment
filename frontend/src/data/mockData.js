@@ -5,12 +5,12 @@
 
 export const MOCK_USER = {
   id: "pat-987654",
-  name: "Ramesh Kumar",
+  name: "Tina Sahu",
   phone: "+91 9876543210",
   maskedPhone: "+91 98******10",
-  email: "ramesh.kumar@gmail.com",
-  gender: "Male",
-  age: 42,
+  email: "tina.sahu@gmail.com",
+  gender: "Female",
+  age: 28,
   bloodGroup: "O+",
   emergencyContact: "+91 9811002233",
   stats: {
@@ -23,12 +23,12 @@ export const MOCK_USER = {
 
 export const MOCK_HOSPITAL = {
   id: "hosp-001",
-  name: "City Care Hospital",
-  location: "Sector 14, Ring Road, New Delhi",
+  name: "Ojha Multispeciality Hospital",
+  location: "Anukool Chandra Banarjee Marg, near Parvati Hospital, Tagore Town, Prayagraj, UP 211002",
   coordinates: {
-    lat: 28.5355,
-    lng: 77.3910,
-    address: "City Care Hospital, Sector 14, New Delhi"
+    lat: 25.4570,
+    lng: 81.8637,
+    address: "Ojha Multispeciality Hospital, Anukool Chandra Banarjee Marg, near Parvati Hospital, Tagore Town, Prayagraj, UP 211002"
   },
   departments: [
     { id: "dept-cardio", name: "Cardiology" },
@@ -42,17 +42,17 @@ export const MOCK_HOSPITAL = {
 export const MOCK_DOCTORS = [
   {
     id: "doc-divyansh",
-    name: "Dr. Divyansh Sharma",
+    name: "Dr. Divyansh Pandey",
     specialization: "Cardiologist",
     departmentId: "dept-cardio",
     hospitalId: "hosp-001",
-    hospitalName: "City Care Hospital, Delhi",
+    hospitalName: "Ojha Multispeciality Hospital, Prayagraj",
     experience: "14+ Years",
     rating: 4.9,
     reviewsCount: 320,
-    averageConsultationMinutes: 8,
+    averageConsultationMinutes: 5,
     avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80",
-    roomNo: "OPD Room 204, 2nd Floor",
+    roomNo: "Cardiology OPD Block A, 1st Floor",
     consultationFee: "₹800",
     availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     slots: [
@@ -66,11 +66,11 @@ export const MOCK_DOCTORS = [
     specialization: "Neurologist",
     departmentId: "dept-neuro",
     hospitalId: "hosp-001",
-    hospitalName: "City Care Hospital, Delhi",
+    hospitalName: "Ojha Multispeciality Hospital, Prayagraj",
     experience: "11 Years",
     rating: 4.8,
     reviewsCount: 245,
-    averageConsultationMinutes: 10,
+    averageConsultationMinutes: 5,
     avatar: "https://images.unsplash.com/photo-1594824813586-2a78187ff607?w=150&auto=format&fit=crop&q=80",
     roomNo: "OPD Room 301, 3rd Floor",
     consultationFee: "₹1000",
@@ -85,11 +85,11 @@ export const MOCK_DOCTORS = [
     specialization: "Orthopedic Surgeon",
     departmentId: "dept-ortho",
     hospitalId: "hosp-001",
-    hospitalName: "City Care Hospital, Delhi",
+    hospitalName: "Ojha Multispeciality Hospital, Prayagraj",
     experience: "18 Years",
     rating: 4.9,
     reviewsCount: 512,
-    averageConsultationMinutes: 7,
+    averageConsultationMinutes: 5,
     avatar: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80",
     roomNo: "OPD Room 108, 1st Floor",
     consultationFee: "₹900",
@@ -101,17 +101,17 @@ export const MOCK_DOCTORS = [
 ];
 
 export const INITIAL_ACTIVE_APPOINTMENT = {
-  id: "apt-103",
-  tokenNumber: "TKN-103",
-  numericToken: 103,
+  id: "apt-105",
+  tokenNumber: "TKN-105",
+  numericToken: 105,
   doctor: MOCK_DOCTORS[0],
   hospital: MOCK_HOSPITAL,
-  date: "16 May 2025",
-  rawDate: "2025-05-16",
+  date: "Today",
+  rawDate: new Date().toISOString().split("T")[0],
   time: "10:30 AM",
-  status: "waiting", // waiting | in_consultation | completed | cancelled
+  status: "waiting",
   priority: "normal",
-  createdAt: "2025-05-15T09:00:00Z",
+  createdAt: new Date().toISOString(),
   patientLocation: {
     lat: 28.6139,
     lng: 77.2090,
@@ -125,10 +125,10 @@ export const INITIAL_QUEUE_DATA = [
     tokenNumber: "TKN-101",
     numericToken: 101,
     patientName: "Ramesh Sharma",
-    status: "completed", // completed | in_progress | waiting | upcoming
+    status: "completed",
     time: "10:00 AM",
     isUser: false,
-    durationMinutes: 8
+    durationMinutes: 5
   },
   {
     id: "q-102",
@@ -138,37 +138,37 @@ export const INITIAL_QUEUE_DATA = [
     status: "in_progress",
     time: "10:15 AM",
     isUser: false,
-    durationMinutes: 7
+    durationMinutes: 5
   },
   {
     id: "q-103",
     tokenNumber: "TKN-103",
     numericToken: 103,
-    patientName: "Ramesh Kumar",
+    patientName: "Amit Singh",
     status: "waiting",
     time: "10:30 AM",
-    isUser: true,
-    durationMinutes: 8
+    isUser: false,
+    durationMinutes: 5
   },
   {
     id: "q-104",
     tokenNumber: "TKN-104",
     numericToken: 104,
-    patientName: "Amit Singh",
+    patientName: "Pooja Shah",
     status: "waiting",
     time: "10:45 AM",
     isUser: false,
-    durationMinutes: 8
+    durationMinutes: 5
   },
   {
     id: "q-105",
     tokenNumber: "TKN-105",
     numericToken: 105,
-    patientName: "Pooja Shah",
-    status: "upcoming",
+    patientName: "Tina Sahu",
+    status: "waiting",
     time: "11:00 AM",
-    isUser: false,
-    durationMinutes: 8
+    isUser: true,
+    durationMinutes: 5
   },
   {
     id: "q-106",
@@ -178,7 +178,7 @@ export const INITIAL_QUEUE_DATA = [
     status: "upcoming",
     time: "11:15 AM",
     isUser: false,
-    durationMinutes: 8
+    durationMinutes: 5
   }
 ];
 
@@ -189,19 +189,19 @@ export const MOCK_TRAVEL_INFO = {
     address: "Connaught Place, Central Delhi"
   },
   clinicLocation: {
-    lat: 28.5355,
-    lng: 77.3910,
-    address: "City Care Hospital, Sector 14, New Delhi"
+    lat: 25.4570,
+    lng: 81.8637,
+    address: "Ojha Multispeciality Hospital, Anukool Chandra Banarjee Marg, near Parvati Hospital, Tagore Town, Prayagraj, UP 211002"
   },
   distanceKm: 4.8,
   travelMinutes: 18,
-  trafficLevel: "Medium", // Low | Medium | High | Severe
+  trafficLevel: "Medium",
   speedMultiplier: 1.25,
   safetyBufferMinutes: 10,
   routeSteps: [
-    { instruction: "Head south toward Outer Ring Road", distanceKm: 1.2, durationMinutes: 4 },
-    { instruction: "Take flyover onto Hospital Link Road", distanceKm: 2.6, durationMinutes: 10 },
-    { instruction: "Turn right into City Care Hospital Gate 2", distanceKm: 1.0, durationMinutes: 4 }
+    { instruction: "Head south toward Tagore Town Main Road", distanceKm: 1.2, durationMinutes: 4 },
+    { instruction: "Continue via Anukool Chandra Banarjee Marg", distanceKm: 2.6, durationMinutes: 10 },
+    { instruction: "Arrive at Ojha Multispeciality Hospital (near Parvati Hospital)", distanceKm: 1.0, durationMinutes: 4 }
   ]
 };
 
@@ -209,7 +209,7 @@ export const MOCK_PAST_APPOINTMENTS = [
   {
     id: "apt-098",
     tokenNumber: "TKN-098",
-    doctorName: "Dr. Divyansh Sharma",
+    doctorName: "Dr. Divyansh Pandey",
     specialization: "Cardiologist",
     date: "12 Apr 2025",
     time: "11:00 AM",

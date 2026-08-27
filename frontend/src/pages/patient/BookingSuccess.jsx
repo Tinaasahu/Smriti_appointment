@@ -39,7 +39,7 @@ export default function BookingSuccess() {
         <div className="bg-slate-50/80 rounded-2xl p-6 border border-slate-100 text-left space-y-3.5">
           <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className="font-semibold text-slate-400">Doctor</span>
-            <span className="font-extrabold text-slate-900">{doctor?.name || "Dr. Divyansh Sharma"}</span>
+            <span className="font-extrabold text-slate-900">{doctor?.name || "Dr. Divyansh Pandey"}</span>
           </div>
 
           <div className="flex items-center justify-between text-xs sm:text-sm">

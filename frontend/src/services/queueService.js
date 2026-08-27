@@ -1,6 +1,6 @@
 /**
  * Queue Service
- * Connects to backend/app/routes/queue.py
+ * Connects to backend queue endpoints and GET /queue/{token} & GET /patient/dashboard/{token}
  */
 
 import { request } from "./api";
@@ -18,6 +18,24 @@ export const queueService = {
       return response.queue;
     }
     return INITIAL_QUEUE_DATA;
+  },
+
+  /**
+   * Retrieves patient's specific queue status & people ahead
+   * Corresponds to GET /queue/{token} and GET /api/v1/queue/patient/{appointment_id}
+   */
+  async getQueueByToken(token) {
+    const response = await request(`/queue/${token}`);
+    if (response && response.success) {
+      return response;
+    }
+    return {
+      success: true,
+      appointment_id: token,
+      your_token: token.startsWith("TKN-") ? token : `TKN-${token}`,
+      people_ahead: 2,
+      status: "waiting"
+    };
   },
 
   /**
@@ -58,5 +76,17 @@ export const queueService = {
       completed_consultations: 18,
       eta_source: "historical_average"
     };
+  },
+
+  /**
+   * Orchestrator endpoint: Combines Queue + Prediction + Maps into single response
+   * Corresponds to GET /patient/dashboard/{token}
+   */
+  async getPatientDashboardOrchestration(token) {
+    const response = await request(`/patient/dashboard/${token}`);
+    if (response && response.success) {
+      return response;
+    }
+    return null;
   }
 };
